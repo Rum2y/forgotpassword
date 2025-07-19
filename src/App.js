@@ -20,13 +20,15 @@ function App() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError(null);
+    setSuccess(false);
 
     if (password !== confirmPassword) {
       setError("Passwords do not match!");
       return;
     }
-    if (password.length < 6) {
-      setError("Password must be at least 6 characters long.");
+
+    if (password.length < 8) {
+      setError("Password must be at least 8 characters long.");
       return;
     }
 
@@ -35,7 +37,7 @@ function App() {
     const secret = urlParams.get("secret");
 
     if (!userId || !secret) {
-      setError("Invalid request parameters.");
+      setError("Invalid or missing reset link parameters.");
       return;
     }
 
@@ -44,7 +46,19 @@ function App() {
       await account.updateRecovery(userId, secret, password, confirmPassword);
       setSuccess(true);
     } catch (error) {
-      setError("Error resetting password: " + error.message);
+      if (error?.message) {
+        if (error.message.includes("token has expired")) {
+          setError("This reset link has expired. Please request a new one.");
+        } else if (error.message.includes("Invalid token")) {
+          setError("The reset link is invalid or already used.");
+        } else {
+          setError("Error: " + error.message);
+        }
+      } else if (error instanceof TypeError) {
+        setError("Network error. Please check your internet connection.");
+      } else {
+        setError("Something went wrong. Please try again.");
+      }
     } finally {
       setIsLoading(false);
     }
@@ -61,21 +75,10 @@ function App() {
           </div>
         ) : (
           <>
-            <h2 className="form-title" style={{ textAlign: "center" }}>
-              Reset Your Password
-            </h2>
-            <form
-              onSubmit={handleSubmit}
-              style={{
-                width: "100%",
-                display: "flex",
-                flexDirection: "column",
-
-                alignItems: "center",
-              }}
-            >
-              <div className="form-group" style={{ marginBottom: ".75rem" }}>
-                <label htmlFor="password">New Password: </label>
+            <h2 className="form-title">Reset Your Password</h2>
+            <form onSubmit={handleSubmit}>
+              <div className="form-group">
+                <label htmlFor="password">New Password:</label>
                 <input
                   type="password"
                   value={password}
@@ -86,8 +89,8 @@ function App() {
                   required
                 />
               </div>
-              <div className="form-group" style={{ marginBottom: ".75rem" }}>
-                <label htmlFor="confirm-password">Confirm Password: </label>
+              <div className="form-group">
+                <label htmlFor="confirm-password">Confirm Password:</label>
                 <input
                   type="password"
                   value={confirmPassword}
